@@ -78,3 +78,11 @@ impl TextureBounds {
         }
     }
 }
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VREvent
+{
+    None,
+    Unknown,
+    ButtonPress(u32)
+}

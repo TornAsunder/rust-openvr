@@ -109,4 +109,37 @@ impl IVRSystem {
             to_tracked(data)
         }
     }
+
+    pub fn poll_next_event(&self) -> VREvent
+    {
+        use std;
+        use openvr_sys::*;
+
+        unsafe {
+            let system = * { self.0 as *mut openvr_sys::Struct_VR_IVRSystem_FnTable };
+
+            let size: u32 = std::mem::size_of::<openvr_sys::Struct_VREvent_t>() as u32;
+            let mut event: openvr_sys::Struct_VREvent_t = std::mem::zeroed();
+            let is_event = system.PollNextEvent.unwrap()(&mut event, size);
+
+            let event_type: Enum_EVREventType = std::mem::transmute(event.eventType);
+            
+            if is_event != 0
+            {
+                return match event_type {
+                    Enum_EVREventType::EVREventType_VREvent_None => VREvent::None,
+                    Enum_EVREventType::EVREventType_VREvent_ButtonPress => 
+                    {
+                        let d: Struct_VREvent_Controller_t = *event.data.controller();
+                        return VREvent::ButtonPress(d.button);
+                    },
+                    _ => VREvent::Unknown,
+                }
+            }
+            else
+            {
+                return VREvent::None;
+            }
+        }
+    }
 }
