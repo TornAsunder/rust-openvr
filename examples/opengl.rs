@@ -208,6 +208,13 @@ pub fn main() {
             let mut right_matrix = right_projection * right_eye_transform;
             let mut once = false;
 
+            let mut vr_event = system.poll_next_event();
+            while vr_event != openvr::common::VREvent::None
+            {
+                println!("EVE");
+                vr_event = system.poll_next_event();
+            }
+
             for device in tracked_devices.connected_iter() {
                 match device.device_class() {
                     openvr::tracking::TrackedDeviceClass::HMD => {

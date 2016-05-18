@@ -133,6 +133,11 @@ impl IVRSystem {
                         let d: Struct_VREvent_Controller_t = *event.data.controller();
                         return VREvent::ButtonPress(d.button);
                     },
+                    Enum_EVREventType::EVREventType_VREvent_TouchPadMove =>
+                    {
+                        //let d = *event.data.
+                        return VREvent::Unknown //VREvent::TouchPadMove ...
+                    },
                     _ => VREvent::Unknown,
                 }
             }

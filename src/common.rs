@@ -79,10 +79,11 @@ impl TextureBounds {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone)]
 pub enum VREvent
 {
     None,
     Unknown,
-    ButtonPress(u32)
+    ButtonPress(u32),
+    TouchPadMove { finger_down: u8, seconds_finger_down: f32, value_first: (f32,f32), value_raw: (f32,f32) }
 }
