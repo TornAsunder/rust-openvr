@@ -85,5 +85,6 @@ pub enum VREvent
     None,
     Unknown,
     ButtonPress(u32),
+    Status(u32),
     TouchPadMove { finger_down: u8, seconds_finger_down: f32, value_first: (f32,f32), value_raw: (f32,f32) }
 }

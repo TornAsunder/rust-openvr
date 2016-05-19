@@ -133,10 +133,20 @@ impl IVRSystem {
                         let d: Struct_VREvent_Controller_t = *event.data.controller();
                         return VREvent::ButtonPress(d.button);
                     },
+                    Enum_EVREventType::EVREventType_VREvent_StatusUpdate =>
+                    {
+                        let d = *event.data.status();
+                        return VREvent::Status(d.statusState);
+                    },
                     Enum_EVREventType::EVREventType_VREvent_TouchPadMove =>
                     {
-                        //let d = *event.data.
-                        return VREvent::Unknown //VREvent::TouchPadMove ...
+                        let d = *event.data.touchPadMove();
+                        return VREvent::TouchPadMove {
+                            finger_down: d.bFingerDown, 
+                            seconds_finger_down: d.flSecondsFingerDown, 
+                            value_first: (d.fValueXFirst, d.fValueYFirst), 
+                            value_raw: (d.fValueXRaw, d.fValueYRaw)
+                        };
                     },
                     _ => VREvent::Unknown,
                 }
