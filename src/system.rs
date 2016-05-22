@@ -123,6 +123,8 @@ impl IVRSystem {
             let is_event = system.PollNextEvent.unwrap()(&mut event, size);
 
             let event_type: Enum_EVREventType = std::mem::transmute(event.eventType);
+            let event_device_index = event.trackedDeviceIndex;
+            let event_age = event.eventAgeSeconds;
             
             if is_event != 0
             {
@@ -130,13 +132,28 @@ impl IVRSystem {
                     Enum_EVREventType::EVREventType_VREvent_None => VREvent::None,
                     Enum_EVREventType::EVREventType_VREvent_ButtonPress => 
                     {
-                        let d: Struct_VREvent_Controller_t = *event.data.controller();
-                        return VREvent::ButtonPress(d.button);
+                        let d = *event.data.controller();
+                        return VREvent::ButtonPress(event_device_index, event_age, d.button);
+                    },
+                    Enum_EVREventType::EVREventType_VREvent_ButtonUnpress => 
+                    {
+                        let d = *event.data.controller();
+                        return VREvent::ButtonUnpress(event_device_index, event_age, d.button);
+                    },
+                    Enum_EVREventType::EVREventType_VREvent_ButtonTouch => 
+                    {
+                        let d = *event.data.controller();
+                        return VREvent::ButtonTouch(event_device_index, event_age, d.button);
+                    },
+                    Enum_EVREventType::EVREventType_VREvent_ButtonUntouch => 
+                    {
+                        let d = *event.data.controller();
+                        return VREvent::ButtonUntouch(event_device_index, event_age, d.button);
                     },
                     Enum_EVREventType::EVREventType_VREvent_StatusUpdate =>
                     {
                         let d = *event.data.status();
-                        return VREvent::Status(d.statusState);
+                        return VREvent::Status(event_device_index, event_age, d.statusState);
                     },
                     Enum_EVREventType::EVREventType_VREvent_TouchPadMove =>
                     {
@@ -148,7 +165,7 @@ impl IVRSystem {
                             value_raw: (d.fValueXRaw, d.fValueYRaw)
                         };
                     },
-                    _ => VREvent::Unknown,
+                    _ => VREvent::NotImplemented { device_index: event_device_index, event_id: event_type as u32, event_age: event_age },
                 }
             }
             else

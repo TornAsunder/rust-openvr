@@ -211,9 +211,9 @@ pub fn main() {
             let mut vr_event = system.poll_next_event();
             while vr_event != openvr::common::VREvent::None
             {
-                println!("EVE");
+                println!("Event: {:?}", vr_event);
                 vr_event = system.poll_next_event();
-            }
+            }    
 
             for device in tracked_devices.connected_iter() {
                 match device.device_class() {
