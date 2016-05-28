@@ -4,12 +4,32 @@ use openvr_sys::Enum_ETrackingUniverseOrigin::*;
 
 use common::*;
 use tracking::*;
+use std;
 
 pub struct IVRSystem(pub *const ());
 
 impl IVRSystem {
     pub unsafe fn from_raw(ptr: *const ()) -> Self {
         IVRSystem(ptr as *mut ())
+    }
+
+    pub fn get_controller_state(&self, device_index: u32) -> Option<ControllerState>
+    {
+        unsafe {
+            let system = * { self.0 as *mut openvr_sys::Struct_VR_IVRSystem_FnTable };
+            let mut state: openvr_sys::VRControllerState_t = std::mem::zeroed();
+            let exists = system.GetControllerState.unwrap()(device_index, &mut state) != 0;
+            return if exists
+            {
+                Some( ControllerState { 
+                    packet_num: state.unPacketNum, 
+                    button_pressed: state.ulButtonPressed, 
+                    button_touched: state.ulButtonTouched,
+                    r_axis: std::mem::transmute(state.rAxis)
+                } )
+            }
+            else { None }
+        }
     }
 
     /// Get the recommended render target size
@@ -107,6 +127,71 @@ impl IVRSystem {
                 16
             );
             to_tracked(data)
+        }
+    }
+
+    pub fn poll_next_event(&self) -> VREvent
+    {
+        use std;
+        use openvr_sys::*;
+
+        unsafe {
+            let system = * { self.0 as *mut openvr_sys::Struct_VR_IVRSystem_FnTable };
+
+            let size: u32 = std::mem::size_of::<openvr_sys::Struct_VREvent_t>() as u32;
+            let mut event: openvr_sys::Struct_VREvent_t = std::mem::zeroed();
+            let is_event = system.PollNextEvent.unwrap()(&mut event, size);
+
+            let event_type: Enum_EVREventType = std::mem::transmute(event.eventType);
+            let event_device_index = event.trackedDeviceIndex;
+            let event_age = event.eventAgeSeconds;
+            
+            if is_event != 0
+            {
+                return match event_type {
+                    Enum_EVREventType::EVREventType_VREvent_None => VREvent::None,
+                    Enum_EVREventType::EVREventType_VREvent_ButtonPress => 
+                    {
+                        let d = *event.data.controller();
+                        return VREvent::ButtonPress(event_device_index, event_age, d.button);
+                    },
+                    Enum_EVREventType::EVREventType_VREvent_ButtonUnpress => 
+                    {
+                        let d = *event.data.controller();
+                        return VREvent::ButtonUnpress(event_device_index, event_age, d.button);
+                    },
+                    Enum_EVREventType::EVREventType_VREvent_ButtonTouch => 
+                    {
+                        let d = *event.data.controller();
+                        return VREvent::ButtonTouch(event_device_index, event_age, d.button);
+                    },
+                    Enum_EVREventType::EVREventType_VREvent_ButtonUntouch => 
+                    {
+                        let d = *event.data.controller();
+                        return VREvent::ButtonUntouch(event_device_index, event_age, d.button);
+                    },
+                    Enum_EVREventType::EVREventType_VREvent_StatusUpdate =>
+                    {
+                        let d = *event.data.status();
+                        return VREvent::Status(event_device_index, event_age, d.statusState);
+                    },
+                    Enum_EVREventType::EVREventType_VREvent_TouchPadMove =>
+                    {
+                        let d = *event.data.touchPadMove();
+                        return VREvent::TouchPadMove {
+                            finger_down: d.bFingerDown, 
+                            seconds_finger_down: d.flSecondsFingerDown, 
+                            value_first: (d.fValueXFirst, d.fValueYFirst), 
+                            value_raw: (d.fValueXRaw, d.fValueYRaw)
+                        };
+                    },
+                    _ => VREvent::NotImplemented { device_index: event_device_index, event_id: event_type as u32, event_age: event_age },
+                }
+            }
+            else
+            {
+                return VREvent::None;
+            }
         }
     }
 }
