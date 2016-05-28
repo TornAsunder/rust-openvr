@@ -9,6 +9,7 @@ use nalgebra::Inverse;
 use glium::framebuffer::ToColorAttachment;
 use glium::framebuffer::ToDepthAttachment;
 use glium::GlObject;
+use glium::Surface;
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -61,6 +62,7 @@ pub fn main() {
                 .with_depth_buffer(24)
                 .build_glium()
                 .unwrap();
+
 
         // create frame buffer for hmd
         let texture_size = system.recommended_render_target_size();
@@ -136,8 +138,11 @@ pub fn main() {
 
         let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
 
+        let model_name1 = "lh_basestation_vive";
+        let model_name2 = "vr_controller_vive_1_5";
+
         // load controller models
-        let controller = models.load(String::from("lh_basestation_vive")).unwrap_or_else(|err| {
+        let controller = models.load(String::from(model_name1)).unwrap_or_else(|err| {
             openvr::shutdown(); panic!("controller render model not found: {:?}", err) });
 
         let mut controller_vertices: Vec<Vertex> = Vec::new();
@@ -200,6 +205,8 @@ pub fn main() {
             mat.inverse().unwrap()
         };
 
+        
+
         'render: loop {
             // this is important to make sure frames are synced correctly
             let tracked_devices = comp.wait_get_poses();
@@ -214,6 +221,9 @@ pub fn main() {
                 println!("Event: {:?}", vr_event);
                 vr_event = system.poll_next_event();
             }    
+
+            let controller_state = system.get_controller_state(3).unwrap();
+            println!("Axis 0: {:?}",controller_state.r_axis[0]);
 
             for device in tracked_devices.connected_iter() {
                 match device.device_class() {

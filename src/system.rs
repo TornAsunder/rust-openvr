@@ -4,12 +4,32 @@ use openvr_sys::Enum_ETrackingUniverseOrigin::*;
 
 use common::*;
 use tracking::*;
+use std;
 
 pub struct IVRSystem(pub *const ());
 
 impl IVRSystem {
     pub unsafe fn from_raw(ptr: *const ()) -> Self {
         IVRSystem(ptr as *mut ())
+    }
+
+    pub fn get_controller_state(&self, device_index: u32) -> Option<ControllerState>
+    {
+        unsafe {
+            let system = * { self.0 as *mut openvr_sys::Struct_VR_IVRSystem_FnTable };
+            let mut state: openvr_sys::VRControllerState_t = std::mem::zeroed();
+            let exists = system.GetControllerState.unwrap()(device_index, &mut state) != 0;
+            return if exists
+            {
+                Some( ControllerState { 
+                    packet_num: state.unPacketNum, 
+                    button_pressed: state.ulButtonPressed, 
+                    button_touched: state.ulButtonTouched,
+                    r_axis: std::mem::transmute(state.rAxis)
+                } )
+            }
+            else { None }
+        }
     }
 
     /// Get the recommended render target size

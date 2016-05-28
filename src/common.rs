@@ -83,11 +83,20 @@ impl TextureBounds {
 pub enum VREvent
 {
     None,
-    NotImplemented { device_index: u32, event_id: u32, event_age: f32},
+    NotImplemented { device_index: u32, event_id: u32, event_age: f32 },
     ButtonPress(u32, f32, u32),
     ButtonUnpress(u32, f32, u32),
     ButtonTouch(u32, f32, u32),
     ButtonUntouch(u32, f32, u32),
     Status(u32, f32, u32),
     TouchPadMove { finger_down: u8, seconds_finger_down: f32, value_first: (f32,f32), value_raw: (f32,f32) }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct ControllerState
+{
+    pub packet_num: u32,
+    pub button_pressed: u64,
+    pub button_touched: u64,
+    pub r_axis: [(f32, f32);5]
 }
