@@ -9,7 +9,8 @@ use nalgebra::Inverse;
 use glium::framebuffer::ToColorAttachment;
 use glium::framebuffer::ToDepthAttachment;
 use glium::GlObject;
-use glium::Surface;
+
+mod loadbearing;
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -21,6 +22,7 @@ implement_vertex!(Vertex, position, normal, texcoord);
 
 pub fn main() {
     {
+
         // init vr system
         let system = match openvr::init() {
             Ok(ivr) => ivr,
@@ -62,6 +64,8 @@ pub fn main() {
                 .with_depth_buffer(24)
                 .build_glium()
                 .unwrap();
+
+        loadbearing::foo(&display);
 
 
         // create frame buffer for hmd
@@ -142,7 +146,7 @@ pub fn main() {
         let model_name2 = "vr_controller_vive_1_5";
 
         // load controller models
-        let controller = models.load(String::from(model_name1)).unwrap_or_else(|err| {
+        let controller = models.load(String::from(model_name2)).unwrap_or_else(|err| {
             openvr::shutdown(); panic!("controller render model not found: {:?}", err) });
 
         let mut controller_vertices: Vec<Vertex> = Vec::new();
@@ -205,7 +209,15 @@ pub fn main() {
             mat.inverse().unwrap()
         };
 
-        
+        let params = glium::DrawParameters {
+               depth: glium::Depth {
+                   test: glium::draw_parameters::DepthTest::IfLess,
+                   write: true,
+                   .. Default::default()
+               },
+               backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
+               .. Default::default()
+            };
 
         'render: loop {
             // this is important to make sure frames are synced correctly
@@ -215,6 +227,7 @@ pub fn main() {
             let mut right_matrix = right_projection * right_eye_transform;
             let mut once = false;
 
+            /*
             let mut vr_event = system.poll_next_event();
             while vr_event != openvr::common::VREvent::None
             {
@@ -224,10 +237,23 @@ pub fn main() {
 
             let controller_state = system.get_controller_state(3).unwrap();
             println!("Axis 0: {:?}",controller_state.r_axis[0]);
+            */
 
+            
+            let mut target = display.draw();
+            target.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
+            
+            // render hmd eye outputs
+            left_eye_framebuffer.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
+            right_eye_framebuffer.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
+
+
+            let mut device_index = 0;
             for device in tracked_devices.connected_iter() {
-                match device.device_class() {
-                    openvr::tracking::TrackedDeviceClass::HMD => {
+                //match device.device_class() {
+                match device.index {
+                    //openvr::tracking::TrackedDeviceClass::HMD => {
+                    0 => {
                         let matrix = {
                             let raw = device.to_device;
                             let mat = nalgebra::Matrix4::new(
@@ -240,9 +266,11 @@ pub fn main() {
                         left_matrix *= matrix;
                         right_matrix *= matrix;
                     },
-                    openvr::tracking::TrackedDeviceClass::TrackingReference => {
-                        if once { continue; }
-                        once = true;
+                    //openvr::tracking::TrackedDeviceClass::Controller => {
+                    //3 + 4 are controllers
+                    3...5 => {
+                        //if once { continue; }
+                        //once = true;
 
                         let matrix = {
                             let raw = device.to_device;
@@ -254,45 +282,33 @@ pub fn main() {
                             mat
                         };
 
-                        left_matrix *= matrix;
-                        right_matrix *= matrix;
+                        let controller_left_matrix = left_matrix * matrix;
+                        let controlelr_right_matrix = right_matrix * matrix;
+                        
+                        let left_uniforms = uniform! {
+                            matrix: *controller_left_matrix.as_ref(),
+                            diffuse: &controller_texture
+                        };
+
+                        let right_uniforms = uniform! {
+                            matrix: *controlelr_right_matrix.as_ref(),
+                            diffuse: &controller_texture
+                        };
+
+                        // render 2d display output
+                        target.draw(&controller_vertex_buffer, &controller_index_buffer, &program, &left_uniforms, &params).unwrap();
+
+                        left_eye_framebuffer.draw(&controller_vertex_buffer, &controller_index_buffer, &program, &left_uniforms, &params).unwrap();
+                        right_eye_framebuffer.draw(&controller_vertex_buffer, &controller_index_buffer, &program, &right_uniforms, &params).unwrap();
                     },
                     _ => { }
                 };
+                println!("{:?}", device_index);
+                device_index += 1;
             }
 
-            let mut target = display.draw();
-            target.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
 
-            let left_uniforms = uniform! {
-                matrix: *left_matrix.as_ref(),
-                diffuse: &controller_texture
-            };
-
-            let right_uniforms = uniform! {
-                matrix: *right_matrix.as_ref(),
-                diffuse: &controller_texture
-            };
-
-            let params = glium::DrawParameters {
-               depth: glium::Depth {
-                   test: glium::draw_parameters::DepthTest::IfLess,
-                   write: true,
-                   .. Default::default()
-               },
-               backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
-               .. Default::default()
-            };
-
-            // render 2d display output
-            target.draw(&controller_vertex_buffer, &controller_index_buffer, &program, &left_uniforms, &params).unwrap();
-
-            // render hmd eye outputs
-            left_eye_framebuffer.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
-            right_eye_framebuffer.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
-
-            left_eye_framebuffer.draw(&controller_vertex_buffer, &controller_index_buffer, &program, &left_uniforms, &params).unwrap();
-            right_eye_framebuffer.draw(&controller_vertex_buffer, &controller_index_buffer, &program, &right_uniforms, &params).unwrap();
+            
 
             // finish all rendering
             target.finish().unwrap();
