@@ -5,12 +5,10 @@ extern crate nalgebra;
 extern crate glium;
 
 use std::convert::From;
-use nalgebra::Inverse;
+use nalgebra::*;
 use glium::framebuffer::ToColorAttachment;
 use glium::framebuffer::ToDepthAttachment;
 use glium::GlObject;
-
-mod loadbearing;
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -22,6 +20,7 @@ implement_vertex!(Vertex, position, normal, texcoord);
 
 pub fn main() {
     {
+        
 
         // init vr system
         let system = match openvr::init() {
@@ -64,9 +63,6 @@ pub fn main() {
                 .with_depth_buffer(24)
                 .build_glium()
                 .unwrap();
-
-        loadbearing::foo(&display);
-
 
         // create frame buffer for hmd
         let texture_size = system.recommended_render_target_size();
@@ -225,7 +221,6 @@ pub fn main() {
 
             let mut left_matrix = left_projection * left_eye_transform;
             let mut right_matrix = right_projection * right_eye_transform;
-            let mut once = false;
 
             /*
             let mut vr_event = system.poll_next_event();
